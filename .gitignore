@@ -1,0 +1,20 @@
+# Môi trường (Bảo mật)
+.env
+.env.*
+!.env.example
+
+# Python & Môi trường ảo (Quan trọng)
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Logs & Database
+*.log
+*.sqlite3
+
+# OS & IDE (Hệ điều hành và trình soạn thảo)
+.DS_Store
+.vscode/
+.idea/
