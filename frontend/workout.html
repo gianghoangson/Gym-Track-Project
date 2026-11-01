@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Workout - Gym Tracker</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/workout.css">
+</head>
+<body>
+  <nav id="nav"></nav>
+  <div class="container">
+    <h1>Buổi tập</h1>
+
+    <!-- Chưa bắt đầu -->
+    <div id="startBox" class="card">
+      <button onclick="startWorkout()">Bắt đầu buổi tập trống</button>
+      <br><br>
+      <label>Hoặc chọn routine:</label><br>
+      <select id="routineSelect"></select>
+      <button class="light" onclick="startFromRoutine()">Bắt đầu</button>
+    </div>
+
+    <!-- Đang tập -->
+    <div id="workoutBox" style="display: none;">
+      <div id="timer" style="display: none;"></div>
+
+      <div class="card add-set">
+        <h3>Thêm set</h3>
+        <select id="exerciseSelect"></select>
+        <input type="number" id="weight" placeholder="kg">
+        <input type="number" id="reps" placeholder="reps">
+        <button onclick="addSet()">Thêm</button>
+        <br><br>
+        <label>Nghỉ giữa set (giây):</label>
+        <input type="number" id="restSeconds" value="60">
+      </div>
+
+      <table>
+        <tr><th>Bài tập</th><th>Set</th><th>kg</th><th>Reps</th><th>1RM ước tính</th><th></th></tr>
+        <tbody id="sets"></tbody>
+      </table>
+
+      <button onclick="finishWorkout()">Kết thúc buổi tập</button>
+      <button class="light" onclick="cancelWorkout()">Huỷ buổi tập</button>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/live_workout.js"></script>
+</body>
+</html>
