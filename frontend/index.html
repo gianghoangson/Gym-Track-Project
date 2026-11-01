@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard - Gym Tracker</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <nav id="nav"></nav>
+  <div class="container">
+    <h1>Dashboard</h1>
+
+    <div class="card">
+      <p>Tổng số buổi tập: <b id="total">0</b></p>
+      <a href="workout.html"><button>Bắt đầu tập</button></a>
+    </div>
+
+    <h3>Số buổi tập theo tháng</h3>
+    <table>
+      <tr><th>Tháng</th><th>Số buổi</th></tr>
+      <tbody id="months"></tbody>
+    </table>
+
+    <h3>1RM ước tính cao nhất</h3>
+    <table>
+      <tr><th>Bài tập</th><th>1RM</th></tr>
+      <tbody id="rm"></tbody>
+    </table>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
