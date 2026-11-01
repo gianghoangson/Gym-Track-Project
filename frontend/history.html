@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>History - Gym Tracker</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <nav id="nav"></nav>
+  <div class="container">
+    <h1>Lịch sử tập</h1>
+    <div id="list"></div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    checkLogin();
+    showNav();
+
+    async function loadHistory() {
+      const workouts = await callApi("/workouts");
+      const exercises = await callApi("/exercises");
+
+      // tên bài tập theo id
+      const names = {};
+      for (const e of exercises) {
+        names[e.id] = e.name;
+      }
+
+      let html = "";
+      for (const w of workouts) {
+        html += '<div class="card">';
+        html += "<h3>" + w.name + " - " + formatDate(w.start_time) + "</h3>";
+        html += "<p>Thời gian: " + minutesBetween(w.start_time, w.end_time) + " phút | Volume: " + w.total_volume + " kg</p>";
+        for (const s of w.sets) {
+          if (s.is_completed) {
+            html += "<div>" + names[s.exercise_id] + ": " + s.weight + " kg x " + s.reps + "</div>";
+          }
+        }
+        html += '<br><button class="light" onclick="deleteWorkout(\'' + w.id + '\')">Xoá</button>';
+        html += "</div>";
+      }
+      document.getElementById("list").innerHTML = html || "<p>Chưa có buổi tập nào.</p>";
+    }
+
+    async function deleteWorkout(id) {
+      if (confirm("Xoá buổi tập này?")) {
+        await callApi("/workouts/" + id, "DELETE");
+        loadHistory();
+      }
+    }
+
+    loadHistory();
+  </script>
+</body>
+</html>
