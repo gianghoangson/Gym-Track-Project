@@ -6,6 +6,7 @@ from ..database import get_db
 from ..models import Routine, RoutineExercise
 from ..schemas import RoutineCreate, RoutineOut
 from ..auth.auth import get_current_user
+from ..access import validate_routine_exercises
 
 router = APIRouter(prefix="/routines", tags=["routines"])
 
@@ -17,6 +18,7 @@ def get_routines(db: Session = Depends(get_db), user=Depends(get_current_user)):
 
 @router.post("", response_model=RoutineOut)
 def create_routine(data: RoutineCreate, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    validate_routine_exercises(db, data.exercises, user)
     routine = Routine(name=data.name, user_id=user.id)
     for index, item in enumerate(data.exercises):
         routine.exercises.append(RoutineExercise(exercise_id=item.exercise_id, order_index=index, target_sets=item.target_sets))
@@ -26,11 +28,36 @@ def create_routine(data: RoutineCreate, db: Session = Depends(get_db), user=Depe
     return routine
 
 
+def find_routine(db, routine_id, user):
+    routine = db.query(Routine).filter(Routine.id == routine_id, Routine.user_id == user.id).with_for_update().first()
+    if routine is None:
+        raise HTTPException(404, "Không tìm thấy routine của bạn")
+    return routine
+
+
+@router.get("/{routine_id}", response_model=RoutineOut)
+def get_routine(routine_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return find_routine(db, routine_id, user)
+
+
+@router.put("/{routine_id}", response_model=RoutineOut)
+def update_routine(routine_id: UUID, data: RoutineCreate, db: Session = Depends(get_db), user=Depends(get_current_user)):
+    routine = find_routine(db, routine_id, user)
+    validate_routine_exercises(db, data.exercises, user)
+    for item in list(routine.exercises):
+        db.delete(item)
+    db.flush()
+    routine.name = data.name
+    routine.exercises = [RoutineExercise(exercise_id=item.exercise_id, order_index=index, target_sets=item.target_sets)
+                         for index, item in enumerate(data.exercises)]
+    db.commit()
+    db.refresh(routine)
+    return routine
+
+
 @router.delete("/{routine_id}")
 def delete_routine(routine_id: UUID, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    routine = db.query(Routine).filter(Routine.id == routine_id, Routine.user_id == user.id).first()
-    if routine is None:
-        raise HTTPException(status_code=404, detail="Không tìm thấy routine")
+    routine = find_routine(db, routine_id, user)
     db.delete(routine)
     db.commit()
     return {"message": "Đã xoá"}
