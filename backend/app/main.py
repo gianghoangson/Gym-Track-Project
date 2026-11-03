@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from .database import Base, engine, SessionLocal
 from .models import Exercise
 from .routers import users, exercises, routines, workouts
@@ -31,10 +32,17 @@ DEFAULT_EXERCISES = [
     ("Plank", "Core", "Bodyweight"),
 ]
 
-# Thêm bài tập mặc định nếu database còn trống
-db = SessionLocal()
-if db.query(Exercise).filter(Exercise.user_id == None).count() == 0:
-    for name, muscle, equipment in DEFAULT_EXERCISES:
-        db.add(Exercise(name=name, muscle_group=muscle, equipment=equipment))
-    db.commit()
-db.close()
+def seed_default_exercises():
+    with SessionLocal() as db:
+        # Serialise seeding across PostgreSQL workers without a schema change.
+        if db.bind.dialect.name == "postgresql":
+            db.execute(text("SELECT pg_advisory_xact_lock(7340921)"))
+        names = {e.name.strip().lower() for e in db.query(Exercise).filter(Exercise.user_id.is_(None))}
+        for name, muscle, equipment in DEFAULT_EXERCISES:
+            if name.lower() not in names:
+                db.add(Exercise(name=name, muscle_group=muscle, equipment=equipment))
+                names.add(name.lower())
+        db.commit()
+
+
+seed_default_exercises()
