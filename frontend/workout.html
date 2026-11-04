@@ -22,19 +22,37 @@
       <button class="light" onclick="startFromRoutine()">Bắt đầu</button>
     </div>
 
+    <div class="card" id="routineManager">
+      <h3>Routine</h3>
+      <div id="routineList"></div>
+      <button class="light" onclick="newRoutine()">Tạo routine</button>
+      <form id="routineForm" hidden onsubmit="saveRoutine(event)">
+        <br>
+        <label for="routineName">Tên routine</label>
+        <input id="routineName" required placeholder="Ví dụ: Push Day">
+        <table>
+          <thead><tr><th>Bài tập</th><th>Số set</th><th>Thứ tự</th></tr></thead>
+          <tbody id="routineRows"></tbody>
+        </table>
+        <button type="button" class="light" onclick="addRoutineRow()">Thêm bài tập</button>
+        <button type="submit" id="saveRoutineBtn">Lưu routine</button>
+        <button type="button" class="light" onclick="closeRoutineForm()">Huỷ</button>
+      </form>
+    </div>
+
     <!-- Đang tập -->
     <div id="workoutBox" style="display: none;">
       <div id="timer" style="display: none;"></div>
 
-      <div class="card add-set">
+      <div class="card add-set" id="setControls">
         <h3>Thêm set</h3>
         <select id="exerciseSelect"></select>
-        <input type="number" id="weight" placeholder="kg">
-        <input type="number" id="reps" placeholder="reps">
+        <input type="number" id="weight" placeholder="kg" min="0" step="any">
+        <input type="number" id="reps" placeholder="reps" min="0" step="1">
         <button onclick="addSet()">Thêm</button>
         <br><br>
         <label>Nghỉ giữa set (giây):</label>
-        <input type="number" id="restSeconds" value="60">
+        <input type="number" id="restSeconds" value="60" min="0" step="1">
       </div>
 
       <table>
@@ -42,14 +60,18 @@
         <tbody id="sets"></tbody>
       </table>
 
-      <button onclick="finishWorkout()">Kết thúc buổi tập</button>
-      <button class="light" onclick="cancelWorkout()">Huỷ buổi tập</button>
+      <div id="workoutActions">
+        <button onclick="finishWorkout()">Kết thúc buổi tập</button>
+        <button class="light" onclick="cancelWorkout()">Huỷ buổi tập</button>
+      </div>
+      <p id="finishedNotice" hidden>Buổi tập đã kết thúc. <a href="history.html">Xem lịch sử</a></p>
     </div>
   </div>
 
   <script src="js/auth.js"></script>
   <script src="js/api.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/routines.js"></script>
   <script src="js/live_workout.js"></script>
 </body>
 </html>
