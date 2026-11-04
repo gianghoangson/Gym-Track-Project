@@ -1,169 +1,200 @@
 checkLogin();
 showNav();
-
-let exercises = [];   // danh sách bài tập
-let workout = null;   // buổi tập đang diễn ra
-let timerId = null;   // id của setInterval
+let exercises = [];
+let workout = null;
+let timerId = null;
+let workoutQueue = Promise.resolve();
 
 function exerciseName(id) {
-  for (const e of exercises) {
-    if (e.id === id) return e.name;
-  }
-  return "?";
+  return exercises.find(e => e.id === id)?.name || "?";
 }
 
-// Chạy khi mở trang
+function rememberWorkout() {
+  if (workout && !workout.end_time) localStorage.setItem("workoutId", workout.id);
+  else localStorage.removeItem("workoutId");
+}
+
 async function init() {
   exercises = await callApi("/exercises");
-
-  // đổ danh sách bài tập vào ô chọn
-  let options = "";
-  for (const e of exercises) {
-    options += '<option value="' + e.id + '">' + e.name + "</option>";
-  }
-  document.getElementById("exerciseSelect").innerHTML = options;
-
-  // đổ danh sách routine
-  const routines = await callApi("/routines");
-  let routineOptions = "";
-  for (const r of routines) {
-    routineOptions += '<option value="' + r.id + '">' + r.name + "</option>";
-  }
-  document.getElementById("routineSelect").innerHTML = routineOptions || "<option value=''>(chưa có routine)</option>";
-
-  // nếu đang có buổi tập dở thì mở lại
-  const savedId = localStorage.getItem("workoutId");
-  if (savedId) {
-    try {
-      workout = await callApi("/workouts/" + savedId);
-      if (workout.end_time) {
-        localStorage.removeItem("workoutId");
-        workout = null;
-      }
-    } catch (error) {
-      localStorage.removeItem("workoutId");
-    }
-  }
+  const select = document.getElementById("exerciseSelect");
+  select.replaceChildren();
+  exercises.forEach(e => select.add(new Option(e.name, e.id)));
+  await loadRoutines();
+  // The server is authoritative, including after logout or lost browser state.
+  workout = await callApi("/workouts/active");
+  rememberWorkout();
   showScreen();
 }
 
-// Hiện màn hình phù hợp
+function stopTimer() {
+  clearInterval(timerId);
+  timerId = null;
+  document.getElementById("timer").style.display = "none";
+}
+
 function showScreen() {
-  if (workout) {
-    document.getElementById("startBox").style.display = "none";
-    document.getElementById("workoutBox").style.display = "block";
-    showSets();
-  } else {
-    document.getElementById("startBox").style.display = "block";
-    document.getElementById("workoutBox").style.display = "none";
-  }
+  document.getElementById("startBox").style.display = workout ? "none" : "block";
+  document.getElementById("workoutBox").style.display = workout ? "block" : "none";
+  const finished = Boolean(workout?.end_time);
+  document.getElementById("setControls").hidden = finished;
+  document.getElementById("workoutActions").hidden = finished;
+  document.getElementById("finishedNotice").hidden = !finished;
+  if (!workout || finished) stopTimer();
+  if (workout) showSets();
 }
 
-async function startWorkout() {
-  workout = await callApi("/workouts", "POST", {});
-  localStorage.setItem("workoutId", workout.id);
-  showScreen();
+function workoutAction(action) {
+  workoutQueue = workoutQueue.then(() => runUiAction(async () => {
+    try { await action(); }
+    catch (error) {
+      // A different tab may have finished or deleted the workout.
+      if (workout && (error.status === 409 || error.status === 404)) {
+        try {
+          workout = await callApi("/workouts/" + workout.id);
+        } catch (loadError) {
+          if (loadError.status === 404) workout = await callApi("/workouts/active");
+        }
+        rememberWorkout();
+        showScreen();
+      }
+      throw error;
+    }
+  }));
+  return workoutQueue;
 }
 
-async function startFromRoutine() {
-  const routineId = document.getElementById("routineSelect").value;
-  if (!routineId) {
-    alert("Bạn chưa có routine nào");
-    return;
-  }
-  workout = await callApi("/workouts", "POST", { routine_id: routineId });
-  localStorage.setItem("workoutId", workout.id);
-  showScreen();
+function requireActive() {
+  if (!workout || workout.end_time) throw new Error("Không có buổi tập đang hoạt động");
 }
 
-// Hiện danh sách set
+function startWorkout(routineId = null) {
+  return workoutAction(async () => {
+    const active = await callApi("/workouts/active");
+    workout = active || await callApi("/workouts", "POST", routineId ? {routine_id: routineId} : {});
+    rememberWorkout();
+    showScreen();
+    if (active) alert("Đã khôi phục buổi tập đang hoạt động.");
+  });
+}
+
+function startFromRoutine() {
+  const id = document.getElementById("routineSelect").value;
+  if (!id) { showError("Bạn chưa chọn routine nào"); return; }
+  return startWorkout(id);
+}
+
 function showSets() {
-  let html = "";
-  for (const s of workout.sets) {
-    const rowClass = s.is_completed ? "done" : "";
-    html += '<tr class="' + rowClass + '">';
-    html += "<td>" + exerciseName(s.exercise_id) + "</td>";
-    html += "<td>" + s.set_number + "</td>";
-    html += '<td><input type="number" style="width:70px" value="' + s.weight + '" onchange="changeSet(\'' + s.id + "', 'weight', this.value)\"></td>";
-    html += '<td><input type="number" style="width:70px" value="' + s.reps + '" onchange="changeSet(\'' + s.id + "', 'reps', this.value)\"></td>";
-    html += "<td>" + estimate1RM(s.weight, s.reps) + "</td>";
-    html += "<td>";
-    html += "<button onclick=\"completeSet('" + s.id + "', " + !s.is_completed + ')">' + (s.is_completed ? "Bỏ" : "Xong") + "</button> ";
-    html += "<button class=\"light\" onclick=\"deleteSet('" + s.id + "')\">Xoá</button>";
-    html += "</td></tr>";
-  }
-  document.getElementById("sets").innerHTML = html;
+  const finished = Boolean(workout.end_time);
+  document.getElementById("sets").innerHTML = workout.sets.map(s => {
+    let html = '<tr class="' + (s.is_completed ? "done" : "") + '"><td>' + escapeHtml(exerciseName(s.exercise_id)) + '</td><td>' + s.set_number + '</td>';
+    for (const field of ["weight", "reps"]) {
+      html += finished ? '<td>' + s[field] + '</td>' :
+        '<td><input type="number" min="0" step="' + (field === "weight" ? "any" : "1") + '" style="width:70px" value="' + s[field] +
+        '" onchange="changeSet(\'' + s.id + '\', \'' + field + '\', this.value)"></td>';
+    }
+    html += '<td>' + estimate1RM(s.weight, s.reps) + '</td><td>';
+    if (!finished) {
+      html += '<button onclick="completeSet(\'' + s.id + '\', ' + !s.is_completed + ')">' + (s.is_completed ? "Bỏ" : "Xong") + '</button> ';
+      html += '<button class="light" onclick="deleteSet(\'' + s.id + '\')">Xoá</button>';
+    }
+    return html + '</td></tr>';
+  }).join("");
 }
 
-// Tải lại buổi tập từ server rồi hiện lại
 async function reload() {
   workout = await callApi("/workouts/" + workout.id);
-  showSets();
+  rememberWorkout();
+  showScreen();
 }
 
-async function addSet() {
-  const body = {
-    exercise_id: document.getElementById("exerciseSelect").value,
-    weight: Number(document.getElementById("weight").value),
-    reps: Number(document.getElementById("reps").value),
-  };
-  await callApi("/workouts/" + workout.id + "/sets", "POST", body);
-  await reload();
+function validNumber(value, integer = false) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0 || (integer && !Number.isInteger(number)))
+    throw new Error(integer ? "Reps phải là số nguyên không âm" : "Mức tạ phải là số không âm");
+  return number;
 }
 
-async function changeSet(setId, field, value) {
-  const body = {};
-  body[field] = Number(value);
-  await callApi("/workouts/sets/" + setId, "PUT", body);
-  await reload();
+function addSet() {
+  const exerciseId = document.getElementById("exerciseSelect").value;
+  const weight = document.getElementById("weight").value;
+  const reps = document.getElementById("reps").value;
+  return workoutAction(async () => {
+    requireActive();
+    if (!exerciseId) throw new Error("Chọn một bài tập");
+    await callApi("/workouts/" + workout.id + "/sets", "POST", {
+      exercise_id: exerciseId, weight: validNumber(weight), reps: validNumber(reps, true),
+    });
+    await reload();
+  });
 }
 
-async function completeSet(setId, done) {
-  await callApi("/workouts/sets/" + setId, "PUT", { is_completed: done });
-  await reload();
-  if (done) {
-    startTimer();  // hoàn thành set thì bắt đầu đếm giờ nghỉ
-  }
+function changeSet(setId, field, value) {
+  return workoutAction(async () => {
+    requireActive();
+    try {
+      await callApi("/workouts/sets/" + setId, "PUT", {[field]: validNumber(value, field === "reps")});
+    } catch (error) { showSets(); throw error; }
+    await reload();
+  });
 }
 
-async function deleteSet(setId) {
-  await callApi("/workouts/sets/" + setId, "DELETE");
-  await reload();
+function completeSet(setId, done) {
+  return workoutAction(async () => {
+    requireActive();
+    await callApi("/workouts/sets/" + setId, "PUT", {is_completed: done});
+    await reload();
+    if (done && !workout.end_time) startTimer();
+  });
 }
 
-// Đồng hồ đếm ngược thời gian nghỉ
+function deleteSet(setId) {
+  return workoutAction(async () => {
+    requireActive();
+    await callApi("/workouts/sets/" + setId, "DELETE");
+    await reload();
+  });
+}
+
 function startTimer() {
   let seconds = Number(document.getElementById("restSeconds").value) || 60;
+  if (!Number.isFinite(seconds) || seconds < 0 || !Number.isInteger(seconds)) {
+    showError("Thời gian nghỉ phải là số nguyên không âm");
+    return;
+  }
   const timerBox = document.getElementById("timer");
   timerBox.style.display = "block";
   clearInterval(timerId);
-
   timerBox.textContent = "Nghỉ: " + seconds + " giây";
-  timerId = setInterval(function () {
-    seconds = seconds - 1;
+  timerId = setInterval(() => {
+    seconds -= 1;
     if (seconds <= 0) {
       clearInterval(timerId);
       timerBox.textContent = "Hết giờ nghỉ, tập set tiếp!";
-    } else {
-      timerBox.textContent = "Nghỉ: " + seconds + " giây";
-    }
+    } else timerBox.textContent = "Nghỉ: " + seconds + " giây";
   }, 1000);
 }
 
-async function finishWorkout() {
-  const result = await callApi("/workouts/" + workout.id + "/finish", "POST");
-  localStorage.removeItem("workoutId");
-  alert("Xong! Tổng volume: " + result.total_volume + " kg");
-  window.location.href = "history.html";
-}
-
-async function cancelWorkout() {
-  if (confirm("Huỷ buổi tập này?")) {
-    await callApi("/workouts/" + workout.id, "DELETE");
-    localStorage.removeItem("workoutId");
-    workout = null;
+function finishWorkout() {
+  return workoutAction(async () => {
+    requireActive();
+    workout = await callApi("/workouts/" + workout.id + "/finish", "POST");
+    rememberWorkout();
     showScreen();
-  }
+    alert("Xong! Tổng volume: " + workout.total_volume + " kg × reps");
+    window.location.href = "history.html";
+  });
 }
 
-init();
+function cancelWorkout() {
+  if (!confirm("Huỷ buổi tập này?")) return;
+  return workoutAction(async () => {
+    requireActive();
+    await callApi("/workouts/" + workout.id, "DELETE");
+    workout = await callApi("/workouts/active");
+    rememberWorkout();
+    stopTimer();
+    showScreen();
+  });
+}
+
+workoutQueue = runUiAction(init);
