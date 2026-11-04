@@ -42,15 +42,18 @@
       document.getElementById("title").textContent = isRegister ? "Đăng ký" : "Đăng nhập";
       document.getElementById("submitBtn").textContent = isRegister ? "Đăng ký" : "Đăng nhập";
       document.getElementById("switchBtn").textContent = isRegister ? "Đã có tài khoản" : "Tạo tài khoản";
+      document.getElementById("password").minLength = isRegister ? 6 : 1;
     }
 
     async function submitForm(event) {
       event.preventDefault();
       const body = {
-        email: document.getElementById("email").value,
+        email: document.getElementById("email").value.trim().toLowerCase(),
         password: document.getElementById("password").value,
       };
       try {
+        document.getElementById("submitBtn").disabled = true;
+        document.getElementById("error").textContent = "";
         if (isRegister) {
           await callApi("/users/register", "POST", body);
         }
@@ -58,7 +61,10 @@
         saveToken(data.access_token);
         window.location.href = "index.html";
       } catch (error) {
-        document.getElementById("error").innerHTML = '<div class="error">' + error.message + "</div>";
+        document.getElementById("error").className = "error";
+        document.getElementById("error").textContent = error.message;
+      } finally {
+        document.getElementById("submitBtn").disabled = false;
       }
     }
   </script>
