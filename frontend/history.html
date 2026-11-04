@@ -34,11 +34,11 @@
       let html = "";
       for (const w of workouts) {
         html += '<div class="card">';
-        html += "<h3>" + w.name + " - " + formatDate(w.start_time) + "</h3>";
-        html += "<p>Thời gian: " + minutesBetween(w.start_time, w.end_time) + " phút | Volume: " + w.total_volume + " kg</p>";
+        html += "<h3>" + escapeHtml(w.name) + " - " + formatDate(w.start_time) + "</h3>";
+        html += "<p>Thời gian: " + minutesBetween(w.start_time, w.end_time) + " phút | Volume: " + w.total_volume + " kg × reps</p>";
         for (const s of w.sets) {
           if (s.is_completed) {
-            html += "<div>" + names[s.exercise_id] + ": " + s.weight + " kg x " + s.reps + "</div>";
+            html += "<div>" + escapeHtml(names[s.exercise_id] || "?") + ": " + s.weight + " kg x " + s.reps + "</div>";
           }
         }
         html += '<br><button class="light" onclick="deleteWorkout(\'' + w.id + '\')">Xoá</button>';
@@ -49,12 +49,15 @@
 
     async function deleteWorkout(id) {
       if (confirm("Xoá buổi tập này?")) {
-        await callApi("/workouts/" + id, "DELETE");
-        loadHistory();
+        await runUiAction(async () => {
+          await callApi("/workouts/" + id, "DELETE");
+          if (localStorage.getItem("workoutId") === id) localStorage.removeItem("workoutId");
+          await loadHistory();
+        });
       }
     }
 
-    loadHistory();
+    runUiAction(loadHistory);
   </script>
 </body>
 </html>
