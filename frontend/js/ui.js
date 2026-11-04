@@ -22,6 +22,32 @@ function minutesBetween(start, end) {
 
 // 1RM ước tính (công thức Epley)
 function estimate1RM(weight, reps) {
-  if (reps <= 1) return weight;
-  return Math.round(weight * (1 + reps / 30));
+  if (reps <= 0) return 0;
+  const value = reps === 1 ? weight : weight * (1 + reps / 30);
+  return Math.round(value * 10) / 10;
+}
+
+// Escape user-provided strings before inserting them into existing HTML tables.
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function showError(message) {
+  let box = document.getElementById("error");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "error";
+    document.querySelector(".container h1").after(box);
+  }
+  box.className = message ? "error" : "";
+  box.setAttribute("role", "alert");
+  box.textContent = message || "";
+}
+
+async function runUiAction(action) {
+  showError("");
+  try { return await action(); }
+  catch (error) { showError(error.message || "Có lỗi xảy ra"); }
 }
