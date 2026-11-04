@@ -13,18 +13,19 @@
     <h1>Bài tập</h1>
 
     <div class="card">
-      <h3>Thêm bài tập mới</h3>
-      <form onsubmit="addExercise(event)">
+      <h3 id="exerciseFormTitle">Thêm bài tập mới</h3>
+      <form id="exerciseForm" onsubmit="saveExercise(event)">
         <input type="text" id="name" placeholder="Tên bài tập" required>
         <input type="text" id="muscle" placeholder="Nhóm cơ (vd: Chest)">
         <input type="text" id="equipment" placeholder="Dụng cụ (vd: Barbell)">
         <br><br>
-        <button type="submit">Thêm</button>
+        <button type="submit" id="saveExerciseBtn">Thêm</button>
+        <button type="button" class="light" id="cancelEdit" hidden onclick="resetExerciseForm()">Huỷ sửa</button>
       </form>
     </div>
 
     <table>
-      <tr><th>Tên</th><th>Nhóm cơ</th><th>Dụng cụ</th></tr>
+      <tr><th>Tên</th><th>Nhóm cơ</th><th>Dụng cụ</th><th></th></tr>
       <tbody id="list"></tbody>
     </table>
   </div>
@@ -32,32 +33,8 @@
   <script src="js/auth.js"></script>
   <script src="js/api.js"></script>
   <script src="js/ui.js"></script>
-  <script>
-    checkLogin();
-    showNav();
+  <script src="js/exercises.js"></script>
 
-    async function loadExercises() {
-      const exercises = await callApi("/exercises");
-      let html = "";
-      for (const e of exercises) {
-        html += "<tr><td>" + e.name + "</td><td>" + (e.muscle_group || "") + "</td><td>" + (e.equipment || "") + "</td></tr>";
-      }
-      document.getElementById("list").innerHTML = html;
-    }
-
-    async function addExercise(event) {
-      event.preventDefault();
-      const body = {
-        name: document.getElementById("name").value,
-        muscle_group: document.getElementById("muscle").value,
-        equipment: document.getElementById("equipment").value,
-      };
-      await callApi("/exercises", "POST", body);
-      event.target.reset();
-      loadExercises();
-    }
-
-    loadExercises();
-  </script>
 </body>
 </html>
+
